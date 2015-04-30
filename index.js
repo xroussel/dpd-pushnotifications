@@ -21,17 +21,42 @@ function Pushnotifications( options ) {
   var options = {
     "gateway": (this.config.apnGateway || "gateway.sandbox.push.apple.com"),
     "cert": (this.config.certPemLocation || __dirname + "/../../config/cert.pem"),
-    "key": (this.config.keyPemLocation || __dirname + "/../../config/key.pem")
+    "key": (this.config.keyPemLocation || __dirname + "/../../config/key.pem"),
+    "passphrase": (this.config.keyPemPassphrase || "")
   };
+
   this.apnConnection = new apn.Connection(options);
+
+  var fboptions = {
+      "gateway": (this.config.apnGateway || "gateway.sandbox.push.apple.com"),
+      "cert": (this.config.certPemLocation || __dirname + "/../../config/cert.pem"),
+      "key": (this.config.keyPemLocation || __dirname + "/../../config/key.pem"),
+      "passphrase": (this.config.keyPemPassphrase || ""),
+      "batchFeedback": true,
+      "interval": 300
+  };
+
+  var feedback = new apn.Feedback(fboptions);
+  feedback.on("feedback", function(devices) {
+      devices.forEach(function(item) {
+          this.events.apnfeedback.run(ctx,item, function(err) {
+            ctx.done(err,result) ;
+          });
+      });
+  });
 }
 
 util.inherits( Pushnotifications, Resource );
 
 Pushnotifications.prototype.clientGeneration = true;
-
+Pushnotifications.events = ["apnfeedback"]
 Pushnotifications.basicDashboard = {
   settings: [
+    {
+      name        : 'internalOnly',
+      type        : 'Boolean',
+      description : 'Only allow internal request to use the service'
+    },
     {
       name        : 'gcmApiServerKey',
       type        : 'string',
@@ -66,6 +91,11 @@ Pushnotifications.basicDashboard = {
       name        : 'keyPemLocation',
       type        : 'string',
       description : 'Location of the key.pem-File. Defaults to file named key.pem in the config-directory of the app.'
+    },
+    {
+      name        : 'keyPemPassphrase',
+      type        : 'string',
+      description : 'Passphrase to unlock key.pem'
     }
   ]
 };
@@ -74,6 +104,8 @@ Pushnotifications.basicDashboard = {
  * Module methodes
  */
 Pushnotifications.prototype.handle = function ( ctx, next ) {
+  if (internalOnly && !internal)
+	cancel("Not allowed") ;
 
   if (ctx.body && ctx.body.gcmRegistrationIds && Array.isArray(ctx.body.gcmRegistrationIds) && ctx.body.gcmRegistrationIds.length > 0) {
     var registrationIds = ctx.body.gcmRegistrationIds;
@@ -152,7 +184,12 @@ Pushnotifications.prototype.handle = function ( ctx, next ) {
       } else {
         note.alert = this.config.defaultMessage || 'Hi, something came up!';
       }
-      //note.payload = {'messageFrom': 'Caroline'};
+
+      if (ctx.body.payload) {
+	note.payload = ctx.body.payload ;
+      } else {
+	note.payload = {}
+      }
 
       this.apnConnection.pushNotification(note, device);
     }
