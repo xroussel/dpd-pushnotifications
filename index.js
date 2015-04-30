@@ -5,7 +5,8 @@
 var Resource      = require('deployd/lib/resource'),
     util          = require('util'),
     gcm           = require('node-gcm'),
-    apn           = require('apn');
+    apn           = require('apn'),
+    internalClient = require('deployd/lib/internal-client');
 
 /**
  * Module setup.
@@ -54,7 +55,7 @@ Pushnotifications.basicDashboard = {
   settings: [
     {
       name        : 'internalOnly',
-      type        : 'Boolean',
+      type        : 'checkbox',
       description : 'Only allow internal request to use the service'
     },
     {
@@ -104,8 +105,8 @@ Pushnotifications.basicDashboard = {
  * Module methodes
  */
 Pushnotifications.prototype.handle = function ( ctx, next ) {
-  if (internalOnly && !internal)
-	cancel("Not allowed") ;
+  if (this.config.internalOnly && ctx.res && !ctx.res.internal)
+	ctx.done("Not allowed") ;
 
   if (ctx.body && ctx.body.gcmRegistrationIds && Array.isArray(ctx.body.gcmRegistrationIds) && ctx.body.gcmRegistrationIds.length > 0) {
     var registrationIds = ctx.body.gcmRegistrationIds;
