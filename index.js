@@ -187,12 +187,14 @@ Pushnotifications.prototype.handle = function ( ctx, next ) {
       }
 
       if (ctx.body.payload) {
-	note.payload = ctx.body.payload ;
-      } else {
-	note.payload = {}
+      	note.payload = ctx.body.payload ;
+            } else {
+      	note.payload = {}
       }
 
       this.apnConnection.pushNotification(note, device);
+
+      ctx.done(null,{});
     }
   }
 
